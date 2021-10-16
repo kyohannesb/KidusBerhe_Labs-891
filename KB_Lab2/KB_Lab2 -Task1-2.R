@@ -49,6 +49,10 @@ summary(dams$STATE) #duplicated values that can be grouped.
 summary(streams$LengthKM)
 tm_shape(streams) + tm_lines()
 
+sf::st_crs(counties)
+sf::st_crs(streams)
+sf::st_crs(dams)
+#all in the same projection
 
 
 #!# Task 1: Aspatial operations ------------------------------------------------
@@ -57,6 +61,7 @@ tm_shape(streams) + tm_lines()
 
 #grouping the table by states and then calculating total cost in one line. 
 stateCost_bmp_NA <- bmps %>% dplyr::select(StateAbbreviation, Cost) #selecting the data i want
+
 #----->ANS
 tapply(stateCost_bmp_NA$Cost, stateCost_bmp_NA$StateAbbreviation, summary) #making a stat summary using tapply()
 #other methods returned too many values or did not separate by state visually in the output
@@ -141,13 +146,14 @@ joined_DamStream <- joined_DamStream %>% mutate(LengthM = LengthKM * 1000) #calc
 "LengthM" %in% colnames(joined_DamStream)
 
 #----->ANS
-joined_DamStream %>%  ggplot(., aes(x = DA_Sqkm, y = LengthM, size = ActiveYrs)) + #tried colour but could not figure out how to seperate by individual point
+joined_DamStream %>%  ggplot(., aes(x = DA_Sqkm, y = LengthM, size = ActiveYrs)) + #tried colour but could not figure out how to separate by individual point
   geom_point(alpha = 1, shape = 19) +
   theme_gray(base_size = 15)+
   labs(x = "Dam Area (Km2)", y = "Length of Resulting Stream (m)", subtitle = "Area vs created stream length of Removed dams")
 #graph is showing the Area (km2)and length of streams created by dam removal. 
 #i wanted to see if the size of the dam held weight to the stream created. 
-#I added the years active to show more info on the useage of each point/dam
+#I added the years active to show more info on the usage of each point/dam
+#The graph suggests that there is no direct relationship between Dam area and stream length, suggesting other factors must be considered
 
 
 
@@ -155,7 +161,7 @@ joined_DamStream %>%  ggplot(., aes(x = DA_Sqkm, y = LengthM, size = ActiveYrs))
 
     ##TASK2.1 : --->  5 longest streams
 
-top5StrmTst <- streams %>% arrange(desc(LengthKM)) %>% #arrange the coloumn of length to largest on top
+top5StrmTst <- streams %>% arrange(desc(LengthKM)) %>% #arrange the column of length to largest on top
   dplyr::select(ComID, FCode, GNIS_Name, LengthKM) %>% #bring up only the columns that are wanted
   head(., 5) #output shows the top 5 lengths of streams and their associated names and ID codes
 top5StrmTst #shows created table
@@ -164,7 +170,7 @@ top5StrmTst %>% sf::st_length(.,) #will show lengths in meters computed spatiall
 #!!! 2nd line, Length says 6.54km but geometry says 0.209 km (209m)
 
 #----->ANS
-top5Strm <- streams %>% arrange(desc(sf::st_length(.,))) %>% #spatially find legnths and arrange by descending
+top5Strm <- streams %>% arrange(desc(sf::st_length(.,))) %>% #spatially find lengths and arrange by descending
   dplyr::select(ComID, FCode, GNIS_Name, LengthKM) %>% #bring up only the columns that are wanted
   head(., 5) #only top 5 brought up
 top5Strm #!!!this will show TRUE top 5
@@ -187,39 +193,42 @@ TotStrmCounty %>% dplyr::select(FCode, TOTlnthStrm)%>% #selecting what to show
   
 
 
-    ##TASK2.3 : ---> Join and plot counties' and BMPs total cost
+    ##TASK2.3 : ---> Join and plot counties' and BMPs total cost (past late from "joinCountBMP" on wards)
 
 FIPtemp <- bmps
 FIPtemp <- FIPtemp %>% mutate(., FIPSCode = stringr::str_sub(GeographyName, 1, 5)) #shorten FIPS code
 FIPtemp <- FIPtemp %>% mutate(., FIP = as.numeric(as.character(FIPtemp$FIPSCode))) #turns values in to numbers then adds them back to the list
-summary(FIPtemp$FIP) #verify it is numeric
+summary(FIPtemp$FIP) #verify it is numeric and give quick summary (should not have 0s)
+
+groupBmpTemp <- FIPtemp%>% group_by(StateAbbreviation, FIP) %>% summarise(totalCost = sum(Cost, na.rm=T))
 
 GEOID10temp <- counties
 GEOID10temp <- GEOID10temp %>% mutate(., GEOID10_NUM = as.numeric(as.character(GEOID10temp$GEOID10))) #turns values in to numbers then adds them back to the list
-summary(GEOID10temp$GEOID10_NUM)
+summary(GEOID10temp$GEOID10_NUM) #verify it is numeric and give quick summary (should not have 0s)
 
-joinCountBMP <- left_join(GEOID10temp, FIPtemp, by = c("GEOID10_NUM" = "FIP")) #joining the datasets
+joinCountBMP <- left_join(GEOID10temp, groupBmpTemp, by = c("GEOID10_NUM" = "FIP")) #joining the datasets
 
-#!!! Below was my final attempt to group and map the data. I tried for a few hours and could not find a solution
-#!!! the code seemed to crash rstudio on my laptop. Other attempts weren't any better. 
-#!! As i had other home work i had no choice but to skip the plot, though the code is below
-#!!! please let me know where my issue was
+#----->ANS
+tm_shape(joinCountBMP) + tm_polygons(col = "totalCost")
 
-#grpCountjoin <- joinCountBMP %>%group_by(StateAbbreviation) %>% summarise(totalCost = sum(Cost))
-#tm_shape(grpCountjoin) + tm_polygons(col = "totalCost")
-
-
-
-#Uncompleted (time)------------------------ 
-#At this point i had worked on this for 2 days and had other assignments due the same day, cutting it VERY close
-#I will continue to work on this and try to update Github to see if it works
 
     ##TASK2.4 : ---> Closest stream segment
+#im not sure if this is correct but this is the best i could find for this question
+#the assumption is the spatial join will only call in the row that shares a geometry with the dam.
+damStrmClos <- dams %>% st_join(., streams) #joining files to spatially find closest streams
 
-rmvdDams <- dams%>% subset(., DamRemoval = 2012:2016)
+#----->ANS
+damStrmClos %>% dplyr::select(DAM_NAME.x, WATERBODY.x, GNIS_Name) #show the names of the dam and the corresponding stream 
+#both names where used to ensure the join operated properly, as well as the better name info from the dams file
 
 
     ##TASK2.5 : ---> How many removed dams 
+
+stateDams <- dams %>% mutate(., Count = 1)  %>% #add a column to simiulate count
+  group_by(., STATE) %>% summarise(NumberDams = sum(Count)) #group by state and sum the count
+
+#----->ANS
+stateDams #brings up the data
 
 
   
