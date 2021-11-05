@@ -101,8 +101,32 @@ moran.plot(statePop18_61$POPrt18_61, weightState, zero.policy=TRUE, plot=TRUE)
 
 #!# Task 6: Repeat task 5 using IDW weight method ------------------------------
 
+coordsIDW <- st_centroid(statePop18_61)
 
 
+#coordsIDW <- statePop18_61 %>% as_Spatial() %>% coordinates()
+
+IDWw <- nb2listwdist(neighB, coordsIDW, type = "idw", style="W", zero.policy = TRUE) #standardize IDW rows
+IDWw$weights[1]
+
+## B: Plot histogram of neighbours
+
+IDWHist <- attr(IDWw$weights,"comp")$d
+#----->ANS
+hist(IDWHist)
+
+## C: finding average values of neighbours
+
+IDWpop.lag <- lag.listw(IDWw, statePop18_61$POPrt18_61)
+IDWpop.lag #check to see values are averaged
+
+## D: Creating moran plot
+
+POP18_61IDW <- moran.mc(statePop18_61$POPrt18_61, IDWw, nsim=999)
+POP18_61IDW
+plot(POP18_61IDW, main="", las=1)
+#----->ANS
+moran.plot(statePop18_61$POPrt18_61, IDWw, zero.policy=TRUE, plot=TRUE)
 
 
 
