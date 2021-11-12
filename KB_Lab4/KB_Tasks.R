@@ -98,6 +98,7 @@ Inset.map
 finalFirstMap <- firstMap + Inset.map
 finalFirstMap
 
+#----->ANS
 secondMap
 print(finalFirstMap, vp = viewport(0.7, 0.24, width = 0.55, height = 0.55))
 
@@ -108,48 +109,61 @@ print(finalFirstMap, vp = viewport(0.7, 0.24, width = 0.55, height = 0.55))
 
 # AREA: Hokkaido, Japan
 hokBounds <- sf::read_sf("./hokkaido/Hokkaido_admin1.shp") %>% sf::st_make_valid()#Hokkaido boundaries 
-hokBounds %>% sf::st_transform(., "ESRI:102154") #ensuring UTM 54N
+hokBounds <- hokBounds %>% sf::st_transform(., "ESRI:102154") #ensuring UTM 54N
+sf::st_crs(hokBounds)
 
 hokRail <- sf::read_sf("./hokkaido/hotosm_jpn_north_railways_lines.shp") %>% sf::st_make_valid() #Hokkaido Railway network
-sf::st_crs(hokRail) <- crs(hokBounds)
+hokRail <- hokRail %>% sf::st_transform(., "ESRI:102154") #reprojecting 
 
 hokWater <- sf::read_sf("./hokkaido/hotosm_jpn_north_waterways_polygons.shp") %>% sf::st_make_valid() 
-sf::st_crs(hokWater) <- crs(hokBounds)
+hokWater <- hokWater %>% sf::st_transform(., "ESRI:102154")#reprojecting 
 
 hokDEM <- raster("./hokkaido/Hokkaido_DEM.tif") 
-raster::crs(hokDEM) <- crs(hokBounds)
+hokDEM <- projectRaster(hokDEM, crs= "ESRI:102154") #reprojecting DEM
+sf::st_crs(hokDEM)
+
 
 
 #!# Task 2: Map of our choosing: Hokkaido Railways, water and DEM --------------
 
 
+#----->ANS
 hokMap <- tm_shape(hokBounds)+
-  tm_borders(col = "black", alpha = 0.2)+
-  tm_shape(hokRail)+
+  tm_polygons(col = NA, border.col = "black", alpha = 0.5)+ #adding boundaries and making them transparent
+  tm_shape(hokDEM) +  #adding in DEM layer. #would not show not matter what order, if placed on top map is changed
+  tm_raster(alpha = 1, palette = colorRampPalette(c("#d9d9d9","#969696", "#525252", "#252525" ))(4),
+            legend.show = F) +
+  tm_shape(hokRail)+ #adding in the railway data
   tm_lines(col = "red", alpha = 1)+
   tm_add_legend('line', col = "red",
-                labels = "Hokkaido Railway")+
-  tm_layout(legend.position = c(0.8,0.1))+
-  tm_shape(lanPark)+
-  tm_symbols(col = "AreaName", alpha = 1, size = 1)+
-  tm_layout(legend.outside = TRUE ,legend.outside.position = c("right")) + 
-  tm_shape(lanDEM) + 
-  tm_raster(alpha = 0.4, palette = colorRampPalette(c("#f7f7f7", "#969696", "#252525"))(12),
-            legend.show = F) + tm_compass(type = "8star", position = c("right", "top"), size = 2) +
-  tm_layout(main.title="  Map of Lancaster County", title.size = 1.1) +
-  tm_scale_bar(breaks = c(0,5,10,15,20), 
-               text.size = 0.5, position = c("right", "bottom"))
-
-tm_shape(hokWater)+
-  tm_polygons(col = "blue", alpha = 1, size = 1)+
-  tm_borders(col = "blue", alpha = 1)
+                labels = "Hokkaido Railway")+ #creating legend for the railways
+  tm_layout(legend.position = c(0.8,0.1))+ #adjusts the legend position
+  tm_shape(hokWater)+ #adds waterbodies for Hokkido
+  tm_polygons(col = "blue", #making fill blue
+              border.col = "blue", #making outline blue
+              alpha = 1)+
+  tm_add_legend('fill', col = "blue", 
+                labels = "Hokkaido Waterways")+ #adding waterways legend
+  tm_layout(legend.position = c(0.8,0.08)) + #adjusts the legend position
+  tm_compass(type = "arrow", position = c("right", "center"), size = 3)+ #adds "north arrow"
+  tm_layout(main.title="Map of Hokkaido - Rail and Water Ways", title.size = 1.1) + #adds title to map
+  tm_scale_bar(breaks = c(0,50,100,150,200), 
+               text.size = 0.5, position = c("right", "bottom")) + #adds scale bar and dictates the position and text size
+  tm_layout(bg.color = "#a6bddb") +
+  tm_add_legend('line', col = "black", 
+                labels = "Hokkaido Admin Boundaries")+ #adding boundaries legend
+  tm_add_legend('fill', col = "#a6bddb", 
+                labels = "Ocean") #adding ocean legend
   
 
+#----->ANS
+hokMap
 
-tm_add_legend('symbol', 
-              col = RColorBrewer::brewer.pal(4, "YlOrRd"),
-              border.col = "grey40",
-              size = bubble_sizes,
-              labels = c('0-15 mln','15-25 mln','25-35 mln','35-40 mln'),
-              title="Population Estimate")
+#!!! - below is this raster that should have showed up but could not get it to in the main map
+#!!! - NOTE: Please let me know where i have made a mistake in showing the raster. 
+rast <- tm_shape(hokDEM) + 
+  tm_raster(alpha = 0.5, palette = colorRampPalette(c("#d9d9d9","#969696", "#525252", "#252525" ))(4),
+            legend.show = F)
+rast
 
+hokMap + rast
